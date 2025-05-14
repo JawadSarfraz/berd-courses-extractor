@@ -1,0 +1,13 @@
+{
+    "base_url": "https://www.berd-nfdi.de/berd-academy/",
+    "output_file": "output/courses.json",
+    "categories": ["Self-Paced", "All upcoming", "Registration open"],
+    "categories_map": {
+      "Self-Paced": "self-paced",
+      "All upcoming": "upcoming",
+      "Registration open": "registration-open"
+    },
+    "headless": true,
+    "webdriver_path": "path/to/chromedriver"
+  }
+  
