@@ -12,11 +12,11 @@ class CourseExtractor:
         # Predefined topics and their keywords
         self.topics_map = {
             "Python": ["Python"],
-            "Data Science": ["Data Science", "Data"],
+            "Data Science": ["Data Science"],
             "R": ["R"],
             "Deep Learning": ["Deep Learning"],
             "NLP": ["NLP", "Natural Language Processing"],
-            "Machine Learning": ["Machine Learning", "ML"]
+            "Machine Learning": ["Machine Learning", "ML", "AutoML"]
         }
 
     def load_config(self, path):
@@ -36,23 +36,27 @@ class CourseExtractor:
     def extract_courses(self, soup):
         """ Extract courses from the page """
         courses = []
-        course_sections = soup.find_all("div", class_="wp-block-column")
+        course_list = soup.find_all("ul", class_="berd_course_list")
 
-        for course in course_sections:
-            title_elem = course.find("h3")
-            title = title_elem.get_text(strip=True) if title_elem else "No Title"
+        for course_container in course_list:
+            course_items = course_container.find_all("li")
 
-            description_elem = course.find("p")
-            description = description_elem.get_text(strip=True) if description_elem else "No Description"
+            for course in course_items:
+                # Extract course title and URL
+                title_elem = course.find("a")
+                title = title_elem.get_text(strip=True) if title_elem else "No Title"
+                url = title_elem["href"] if title_elem else "#"
 
-            read_more_elem = course.find("a", string="READ MORE")
-            url = read_more_elem["href"] if read_more_elem else "#"
+                # Extract description (if available)
+                description_elem = course.find("div", class_="berd_excerpt")
+                description = description_elem.get_text(strip=True) if description_elem else "No Description"
 
-            courses.append({
-                "title": title,
-                "url": url,
-                "description": description
-            })
+                # Append to courses list
+                courses.append({
+                    "title": title,
+                    "url": url,
+                    "description": description
+                })
 
         print(f"Extracted {len(courses)} courses.")
         return courses
@@ -71,7 +75,7 @@ class CourseExtractor:
                     if keyword.lower() in title or keyword.lower() in description:
                         categories.add(topic)
 
-            # Assign course to multiple categories
+            # Assign course to multiple topics
             for category in categories:
                 categorized_data[category].append({
                     "title": course["title"],
@@ -80,6 +84,8 @@ class CourseExtractor:
                     "categories": list(categories)
                 })
 
+        # Remove empty categories
+        categorized_data = {k: v for k, v in categorized_data.items() if v}
         return categorized_data
 
     def extract_all(self):
