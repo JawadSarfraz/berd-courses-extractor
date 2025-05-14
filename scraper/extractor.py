@@ -37,12 +37,21 @@ class CourseExtractor:
 
     def clean_text(self, text):
         """ Clean and normalize the text """
+        # Convert \u2013 to hyphen
         text = text.replace("\u2013", "-")
+
+        # Decode other Unicode sequences
         try:
             text = codecs.decode(text, 'unicode_escape')
         except Exception:
             pass
+
+        # Remove misencoded characters
+        text = re.sub(r"[^\x00-\x7F]+", " ", text)
+
+        # Remove excessive whitespace
         text = re.sub(r"\s+", " ", text).strip()
+
         return text
 
     def extract_courses(self, soup):
