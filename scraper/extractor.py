@@ -2,6 +2,7 @@ import json
 import os
 import requests
 from bs4 import BeautifulSoup
+import re
 
 class CourseExtractor:
     def __init__(self, config_path):
@@ -33,6 +34,14 @@ class CourseExtractor:
             print(f"Error fetching {url}: {e}")
             return None
 
+    def clean_text(self, text):
+        """ Convert Unicode to optimal format """
+        # Convert \u2013 to hyphen
+        text = text.replace("\u2013", "-")
+        # Remove extra whitespace
+        text = re.sub(r"\s+", " ", text).strip()
+        return text
+
     def extract_courses(self, soup):
         """ Extract courses from the page """
         courses = []
@@ -44,12 +53,12 @@ class CourseExtractor:
             for course in course_items:
                 # Extract course title and URL
                 title_elem = course.find("a")
-                title = title_elem.get_text(strip=True) if title_elem else "No Title"
+                title = self.clean_text(title_elem.get_text(strip=True)) if title_elem else "No Title"
                 url = title_elem["href"] if title_elem else "#"
 
                 # Extract description (if available)
                 description_elem = course.find("div", class_="berd_excerpt")
-                description = description_elem.get_text(strip=True) if description_elem else "No Description"
+                description = self.clean_text(description_elem.get_text(strip=True)) if description_elem else "No Description"
 
                 # Append to courses list
                 courses.append({
