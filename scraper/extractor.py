@@ -37,7 +37,6 @@ class CourseExtractor:
 
     def clean_text(self, text):
         """ Clean and normalize the text """
-        # Convert \u2013 to hyphen
         text = text.replace("\u2013", "-")
 
         # Decode other Unicode sequences
@@ -53,6 +52,22 @@ class CourseExtractor:
         text = re.sub(r"\s+", " ", text).strip()
 
         return text
+
+    def extract_date(self, text):
+        """ Extract starting date in 'dd-mm-yyyy' or similar formats """
+        # Common date formats (dd-mm-yyyy, dd.mm.yyyy, dd/mm/yyyy, Month dd yyyy)
+        date_patterns = [
+            r"\b(\d{1,2}[-/\.]\d{1,2}[-/\.]\d{2,4})\b",
+            r"\b(\w+ \d{1,2}[,]? \d{4})\b"
+        ]
+
+        for pattern in date_patterns:
+            match = re.search(pattern, text)
+            if match:
+                # Normalize date to "dd-mm-yyyy"
+                return match.group(1).replace("/", "-").replace(".", "-")
+        
+        return ""
 
     def extract_courses(self, soup):
         """ Extract courses by capturing distinct elements under <li> """
@@ -72,6 +87,9 @@ class CourseExtractor:
                     meta_elem = course.find("div", class_="berd_meta")
                     meta_info = self.clean_text(meta_elem.get_text(separator=" ").strip()) if meta_elem else ""
 
+                    # Extract starting date from metadata
+                    starting_date = self.extract_date(meta_info)
+
                     # Extract specific parts from the full text
                     title_parts = full_text.split(" With ")
                     title = title_parts[0].strip() if len(title_parts) > 0 else full_text
@@ -86,7 +104,8 @@ class CourseExtractor:
                             "title": title,
                             "url": url,
                             "description": description,
-                            "info": meta_info
+                            "info": meta_info,
+                            "starting-date": starting_date
                         })
 
         print(f"Extracted {len(courses)} unique courses.")
@@ -112,6 +131,7 @@ class CourseExtractor:
                     "url": course["url"],
                     "description": course["description"],
                     "info": course["info"],
+                    "starting-date": course["starting-date"],
                     "categories": list(categories)
                 })
 
