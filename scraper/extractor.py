@@ -24,31 +24,46 @@ class CourseExtractor:
             print(f"Error fetching {url}: {e}")
             return None
 
+    def extract_topics(self, soup):
+        """ Extract topics and their related courses """
+        topics_section = soup.find("span", string=lambda text: "Topics" in text)
+        if not topics_section:
+            print("No topics section found.")
+            return {}
+
+        topics = {}
+        topics_container = topics_section.find_next("div")
+        topic_texts = topics_container.get_text(separator=",").split(",")
+
+        for topic in topic_texts:
+            topic = topic.strip()
+            if topic:
+                topics[topic] = []
+
+        return topics
+
     def extract_courses(self, category, soup):
+        """ Extract courses based on category """
         courses = []
         print(f"Extracting category: {category}")
 
         # Locate the section based on category
         category_section = soup.find("span", string=lambda text: text and category.lower() in text.lower())
-
         if not category_section:
             print(f"No section found for category: {category}")
             return courses
 
-        # Find the course list
         course_list = category_section.find_next("ul", class_="berd_course_list")
 
         if not course_list:
             print(f"No course list found for category: {category}")
             return courses
 
-        # Iterate through each course entry
         for course in course_list.find_all("li"):
             title_elem = course.find("a")
             title = title_elem.get_text(strip=True) if title_elem else "No Title"
             url = title_elem["href"] if title_elem else "#"
 
-            # Extract description if available
             description_elem = course.find("div", class_="berd_excerpt")
             description = description_elem.get_text(strip=True) if description_elem else "No Description"
 
@@ -56,7 +71,7 @@ class CourseExtractor:
                 "title": title,
                 "url": url,
                 "description": description,
-                "starting-date": "N/A"
+                "categories": [category]
             })
 
         print(f"Extracted {len(courses)} courses for category: {category}")
@@ -68,13 +83,20 @@ class CourseExtractor:
             return
 
         soup = BeautifulSoup(content, "lxml")
-        all_courses = {}
 
+        # Extract topics
+        topics = self.extract_topics(soup)
+
+        # Extract courses for each category
         for category, json_key in self.categories_map.items():
-            courses = self.extract_courses(category, soup)
-            all_courses[json_key] = courses
+            category_courses = self.extract_courses(category, soup)
 
-        self.save_to_json(all_courses)
+            for course in category_courses:
+                for topic in topics:
+                    if topic.lower() in course["title"].lower() or topic.lower() in course["description"].lower():
+                        topics[topic].append(course)
+
+        self.save_to_json(topics)
 
     def save_to_json(self, data):
         os.makedirs(os.path.dirname(self.output_file), exist_ok=True)
