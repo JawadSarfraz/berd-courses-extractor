@@ -26,13 +26,22 @@ class CourseExtractor:
 
     def extract_topics(self, soup):
         """ Extract topics and their related courses """
-        topics_section = soup.find("span", string=lambda text: "Topics" in text)
+        topics = {}
+
+        # Locate the Topics section
+        topics_section = soup.find("span", string=lambda text: text and "Topics" in text)
+
         if not topics_section:
             print("No topics section found.")
-            return {}
+            return topics
 
-        topics = {}
+        # Locate the container holding the topics
         topics_container = topics_section.find_next("div")
+        if not topics_container:
+            print("No topics container found.")
+            return topics
+
+        # Extract topics
         topic_texts = topics_container.get_text(separator=",").split(",")
 
         for topic in topic_texts:
@@ -40,6 +49,7 @@ class CourseExtractor:
             if topic:
                 topics[topic] = []
 
+        print(f"Extracted topics: {list(topics.keys())}")
         return topics
 
     def extract_courses(self, category, soup):
