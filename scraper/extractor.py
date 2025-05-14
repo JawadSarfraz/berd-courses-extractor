@@ -26,22 +26,31 @@ class CourseExtractor:
 
     def extract_courses(self, category, soup):
         courses = []
-        print(f"Looking for category: {category}")
+        print(f"Extracting category: {category}")
 
-        # Locate the category section using more robust search
-        category_section = soup.find("h2", string=lambda text: text and category.lower() in text.lower())
+        # Locate the section based on category
+        category_section = soup.find("span", string=lambda text: text and category.lower() in text.lower())
 
         if not category_section:
             print(f"No section found for category: {category}")
             return courses
 
-        course_list = category_section.find_next("div").find_all("div", recursive=False)
+        # Find the course list
+        course_list = category_section.find_next("ul", class_="berd_course_list")
 
-        for course in course_list:
-            title = course.find("h3").get_text(strip=True) if course.find("h3") else "No Title"
-            description = course.find("p").get_text(strip=True) if course.find("p") else "No Description"
-            read_more = course.find("a", string="READ MORE")
-            url = read_more["href"] if read_more else "#"
+        if not course_list:
+            print(f"No course list found for category: {category}")
+            return courses
+
+        # Iterate through each course entry
+        for course in course_list.find_all("li"):
+            title_elem = course.find("a")
+            title = title_elem.get_text(strip=True) if title_elem else "No Title"
+            url = title_elem["href"] if title_elem else "#"
+
+            # Extract description if available
+            description_elem = course.find("div", class_="berd_excerpt")
+            description = description_elem.get_text(strip=True) if description_elem else "No Description"
 
             courses.append({
                 "title": title,
