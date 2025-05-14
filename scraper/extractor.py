@@ -25,29 +25,23 @@ class CourseExtractor:
             return None
 
     def extract_topics(self, soup):
-        """ Extract topics and their related courses """
+        """ Extract topics """
         topics = {}
-
-        # Locate the Topics section
         topics_section = soup.find("span", string=lambda text: text and "Topics" in text)
 
         if not topics_section:
             print("No topics section found.")
             return topics
 
-        # Locate the container holding the topics
-        topics_container = topics_section.find_next("div")
-        if not topics_container:
-            print("No topics container found.")
-            return topics
-
         # Extract topics
-        topic_texts = topics_container.get_text(separator=",").split(",")
+        topics_container = topics_section.find_next("div")
+        if topics_container:
+            topic_texts = topics_container.get_text(separator=",").split(",")
 
-        for topic in topic_texts:
-            topic = topic.strip()
-            if topic:
-                topics[topic] = []
+            for topic in topic_texts:
+                topic = topic.strip()
+                if topic:
+                    topics[topic] = []
 
         print(f"Extracted topics: {list(topics.keys())}")
         return topics
@@ -105,6 +99,9 @@ class CourseExtractor:
                 for topic in topics:
                     if topic.lower() in course["title"].lower() or topic.lower() in course["description"].lower():
                         topics[topic].append(course)
+
+        # Remove empty topics
+        topics = {k: v for k, v in topics.items() if v}
 
         self.save_to_json(topics)
 
