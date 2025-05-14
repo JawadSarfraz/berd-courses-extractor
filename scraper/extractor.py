@@ -36,7 +36,7 @@ class CourseExtractor:
             return None
 
     def clean_text(self, text):
-        """ Convert Unicode sequences to characters and normalize text """
+        """ Clean and normalize the text """
         # Convert \u2013 to hyphen
         text = text.replace("\u2013", "-")
         # Decode other Unicode sequences
@@ -51,7 +51,7 @@ class CourseExtractor:
         return text
 
     def extract_courses(self, soup):
-        """ Extract courses from the page """
+        """ Extract courses by directly capturing the text under the <li> tag """
         courses = []
         course_list = soup.find_all("ul", class_="berd_course_list")
 
@@ -59,21 +59,24 @@ class CourseExtractor:
             course_items = course_container.find_all("li")
 
             for course in course_items:
-                # Extract course title and URL
-                title_elem = course.find("a")
-                title = self.clean_text(title_elem.get_text(strip=True)) if title_elem else "No Title"
-                url = title_elem["href"] if title_elem else "#"
+                link_elem = course.find("a")
+                if link_elem:
+                    url = link_elem["href"]
+                    text_content = self.clean_text(link_elem.get_text(separator=" ").strip())
 
-                # Extract description (if available)
-                description_elem = course.find("div", class_="berd_excerpt")
-                description = self.clean_text(description_elem.get_text(strip=True)) if description_elem else "No Description"
+                    # Capture associated metadata (if available)
+                    meta_elem = course.find("div", class_="berd_meta")
+                    meta_info = self.clean_text(meta_elem.get_text(separator=" ").strip()) if meta_elem else ""
 
-                # Append to courses list
-                courses.append({
-                    "title": title,
-                    "url": url,
-                    "description": description
-                })
+                    # Combine text and meta info for easier processing
+                    full_text = f"{text_content} {meta_info}".strip()
+
+                    # Append to the courses list
+                    courses.append({
+                        "title": full_text,
+                        "url": url,
+                        "description": full_text
+                    })
 
         print(f"Extracted {len(courses)} courses.")
         return courses
@@ -84,12 +87,11 @@ class CourseExtractor:
 
         for course in courses:
             title = course["title"].lower()
-            description = course["description"].lower()
             categories = set()
 
             for topic, keywords in self.topics_map.items():
                 for keyword in keywords:
-                    if keyword.lower() in title or keyword.lower() in description:
+                    if keyword.lower() in title:
                         categories.add(topic)
 
             # Assign course to multiple topics
