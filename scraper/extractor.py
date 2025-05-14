@@ -2,7 +2,6 @@ import json
 import os
 import requests
 from bs4 import BeautifulSoup
-from configparser import ConfigParser
 
 class CourseExtractor:
     def __init__(self, config_path):
@@ -19,6 +18,7 @@ class CourseExtractor:
         try:
             response = requests.get(url)
             response.raise_for_status()
+            print(f"Successfully fetched data from {url}")
             return response.content
         except requests.RequestException as e:
             print(f"Error fetching {url}: {e}")
@@ -26,7 +26,11 @@ class CourseExtractor:
 
     def extract_courses(self, category, soup):
         courses = []
-        category_section = soup.find("h2", string=category)
+        print(f"Looking for category: {category}")
+
+        # Locate the category section using more robust search
+        category_section = soup.find("h2", string=lambda text: text and category.lower() in text.lower())
+
         if not category_section:
             print(f"No section found for category: {category}")
             return courses
@@ -46,10 +50,10 @@ class CourseExtractor:
                 "starting-date": "N/A"
             })
 
+        print(f"Extracted {len(courses)} courses for category: {category}")
         return courses
 
     def extract_all(self):
-        print(f"Fetching data from {self.base_url}...")
         content = self.fetch_page(self.base_url)
         if not content:
             return
@@ -58,15 +62,13 @@ class CourseExtractor:
         all_courses = {}
 
         for category, json_key in self.categories_map.items():
-            print(f"Extracting category: {category}")
             courses = self.extract_courses(category, soup)
             all_courses[json_key] = courses
 
         self.save_to_json(all_courses)
-        print(f"Data extraction complete. Saved to {self.output_file}")
 
     def save_to_json(self, data):
         os.makedirs(os.path.dirname(self.output_file), exist_ok=True)
         with open(self.output_file, "w") as file:
             json.dump(data, file, indent=4)
-
+        print(f"Data successfully saved to {self.output_file}")
