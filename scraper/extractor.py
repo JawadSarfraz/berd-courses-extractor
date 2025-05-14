@@ -8,7 +8,16 @@ class CourseExtractor:
         self.config = self.load_config(config_path)
         self.base_url = self.config["base_url"]
         self.output_file = self.config["output_file"]
-        self.categories_map = self.config["categories_map"]
+
+        # Predefined topics and their keywords
+        self.topics_map = {
+            "Python": ["Python"],
+            "Data Science": ["Data Science", "Data"],
+            "R": ["R"],
+            "Deep Learning": ["Deep Learning"],
+            "NLP": ["NLP", "Natural Language Processing"],
+            "Machine Learning": ["Machine Learning", "ML"]
+        }
 
     def load_config(self, path):
         with open(path, "r") as file:
@@ -24,62 +33,54 @@ class CourseExtractor:
             print(f"Error fetching {url}: {e}")
             return None
 
-    def extract_topics(self, soup):
-        """ Extract topics """
-        topics = {}
-        topics_section = soup.find("span", string=lambda text: text and "Topics" in text)
-
-        if not topics_section:
-            print("No topics section found.")
-            return topics
-
-        # Extract topics
-        topics_container = topics_section.find_next("div")
-        if topics_container:
-            topic_texts = topics_container.get_text(separator=",").split(",")
-
-            for topic in topic_texts:
-                topic = topic.strip()
-                if topic:
-                    topics[topic] = []
-
-        print(f"Extracted topics: {list(topics.keys())}")
-        return topics
-
-    def extract_courses(self, category, soup):
-        """ Extract courses based on category """
+    def extract_courses(self, soup):
+        """ Extract courses from the page """
         courses = []
-        print(f"Extracting category: {category}")
+        course_sections = soup.find_all("div", class_="wp-block-column")
 
-        # Locate the section based on category
-        category_section = soup.find("span", string=lambda text: text and category.lower() in text.lower())
-        if not category_section:
-            print(f"No section found for category: {category}")
-            return courses
-
-        course_list = category_section.find_next("ul", class_="berd_course_list")
-
-        if not course_list:
-            print(f"No course list found for category: {category}")
-            return courses
-
-        for course in course_list.find_all("li"):
-            title_elem = course.find("a")
+        for course in course_sections:
+            title_elem = course.find("h3")
             title = title_elem.get_text(strip=True) if title_elem else "No Title"
-            url = title_elem["href"] if title_elem else "#"
 
-            description_elem = course.find("div", class_="berd_excerpt")
+            description_elem = course.find("p")
             description = description_elem.get_text(strip=True) if description_elem else "No Description"
+
+            read_more_elem = course.find("a", string="READ MORE")
+            url = read_more_elem["href"] if read_more_elem else "#"
 
             courses.append({
                 "title": title,
                 "url": url,
-                "description": description,
-                "categories": [category]
+                "description": description
             })
 
-        print(f"Extracted {len(courses)} courses for category: {category}")
+        print(f"Extracted {len(courses)} courses.")
         return courses
+
+    def categorize_courses(self, courses):
+        """ Categorize courses based on keywords """
+        categorized_data = {topic: [] for topic in self.topics_map.keys()}
+
+        for course in courses:
+            title = course["title"].lower()
+            description = course["description"].lower()
+            categories = set()
+
+            for topic, keywords in self.topics_map.items():
+                for keyword in keywords:
+                    if keyword.lower() in title or keyword.lower() in description:
+                        categories.add(topic)
+
+            # Assign course to multiple categories
+            for category in categories:
+                categorized_data[category].append({
+                    "title": course["title"],
+                    "url": course["url"],
+                    "description": course["description"],
+                    "categories": list(categories)
+                })
+
+        return categorized_data
 
     def extract_all(self):
         content = self.fetch_page(self.base_url)
@@ -87,23 +88,9 @@ class CourseExtractor:
             return
 
         soup = BeautifulSoup(content, "lxml")
-
-        # Extract topics
-        topics = self.extract_topics(soup)
-
-        # Extract courses for each category
-        for category, json_key in self.categories_map.items():
-            category_courses = self.extract_courses(category, soup)
-
-            for course in category_courses:
-                for topic in topics:
-                    if topic.lower() in course["title"].lower() or topic.lower() in course["description"].lower():
-                        topics[topic].append(course)
-
-        # Remove empty topics
-        topics = {k: v for k, v in topics.items() if v}
-
-        self.save_to_json(topics)
+        courses = self.extract_courses(soup)
+        categorized_data = self.categorize_courses(courses)
+        self.save_to_json(categorized_data)
 
     def save_to_json(self, data):
         os.makedirs(os.path.dirname(self.output_file), exist_ok=True)
