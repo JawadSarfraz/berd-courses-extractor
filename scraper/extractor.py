@@ -37,21 +37,16 @@ class CourseExtractor:
 
     def clean_text(self, text):
         """ Clean and normalize the text """
-        # Convert \u2013 to hyphen
         text = text.replace("\u2013", "-")
-        # Decode other Unicode sequences
         try:
             text = codecs.decode(text, 'unicode_escape')
-        except Exception as e:
-            print(f"Unicode decode error: {e}")
-        
-        # Remove excessive whitespace
+        except Exception:
+            pass
         text = re.sub(r"\s+", " ", text).strip()
-
         return text
 
     def extract_courses(self, soup):
-        """ Extract courses by directly capturing the text under the <li> tag """
+        """ Extract courses by capturing distinct elements under <li> """
         courses = []
         course_list = soup.find_all("ul", class_="berd_course_list")
 
@@ -62,23 +57,30 @@ class CourseExtractor:
                 link_elem = course.find("a")
                 if link_elem:
                     url = link_elem["href"]
-                    text_content = self.clean_text(link_elem.get_text(separator=" ").strip())
+                    full_text = self.clean_text(link_elem.get_text(separator=" ").strip())
 
-                    # Capture associated metadata (if available)
+                    # Extract metadata (e.g., "Online, self-paced")
                     meta_elem = course.find("div", class_="berd_meta")
                     meta_info = self.clean_text(meta_elem.get_text(separator=" ").strip()) if meta_elem else ""
 
-                    # Combine text and meta info for easier processing
-                    full_text = f"{text_content} {meta_info}".strip()
+                    # Extract specific parts from the full text
+                    title_parts = full_text.split(" With ")
+                    title = title_parts[0].strip() if len(title_parts) > 0 else full_text
+                    description = " ".join(title_parts[1:]).strip()
 
-                    # Append to the courses list
-                    courses.append({
-                        "title": full_text,
-                        "url": url,
-                        "description": full_text
-                    })
+                    # Remove metadata from description
+                    description = description.replace(meta_info, "").strip()
 
-        print(f"Extracted {len(courses)} courses.")
+                    # Prevent duplicate entries
+                    if not any(c["title"] == title and c["url"] == url for c in courses):
+                        courses.append({
+                            "title": title,
+                            "url": url,
+                            "description": description,
+                            "info": meta_info
+                        })
+
+        print(f"Extracted {len(courses)} unique courses.")
         return courses
 
     def categorize_courses(self, courses):
@@ -100,6 +102,7 @@ class CourseExtractor:
                     "title": course["title"],
                     "url": course["url"],
                     "description": course["description"],
+                    "info": course["info"],
                     "categories": list(categories)
                 })
 
