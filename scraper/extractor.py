@@ -3,6 +3,7 @@ import os
 import requests
 from bs4 import BeautifulSoup
 import re
+import codecs
 
 class CourseExtractor:
     def __init__(self, config_path):
@@ -35,11 +36,18 @@ class CourseExtractor:
             return None
 
     def clean_text(self, text):
-        """ Convert Unicode to optimal format """
+        """ Convert Unicode sequences to characters and normalize text """
         # Convert \u2013 to hyphen
         text = text.replace("\u2013", "-")
-        # Remove extra whitespace
+        # Decode other Unicode sequences
+        try:
+            text = codecs.decode(text, 'unicode_escape')
+        except Exception as e:
+            print(f"Unicode decode error: {e}")
+        
+        # Remove excessive whitespace
         text = re.sub(r"\s+", " ", text).strip()
+
         return text
 
     def extract_courses(self, soup):
@@ -109,6 +117,6 @@ class CourseExtractor:
 
     def save_to_json(self, data):
         os.makedirs(os.path.dirname(self.output_file), exist_ok=True)
-        with open(self.output_file, "w") as file:
-            json.dump(data, file, indent=4)
+        with open(self.output_file, "w", encoding="utf-8") as file:
+            json.dump(data, file, indent=4, ensure_ascii=False)
         print(f"Data successfully saved to {self.output_file}")
